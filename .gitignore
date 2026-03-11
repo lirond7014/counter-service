@@ -81,6 +81,22 @@ target/
 profile_default/
 ipython_config.py
 
+# AWS
+.aws/
+aws-credentials
+
+# Kubernetes
+kubeconfig
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+*.tfvars
+!terraform.tfvars.example
+*.tfplan
+
 # pyenv
 .python-version
 
