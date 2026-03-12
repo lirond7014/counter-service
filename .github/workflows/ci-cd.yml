@@ -145,41 +145,8 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
-      - name: Test cluster connectivity
-        run: |
-          echo "=== Cluster Endpoint ==="
-          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.endpoint' --output text
-          
-          echo ""
-          echo "=== Public Access Enabled ==="
-          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.endpointPublicAccess'
-          
-          echo ""
-          echo "=== Security Groups ==="
-          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.securityGroupIds' --output text
-
-      - name: Debug kubectl auth
-        run: |
-          echo "=== Current kubeconfig ==="
-          cat ~/.kube/config
-          
-          echo ""
-          echo "=== AWS STS Identity ==="
-          aws sts get-caller-identity
-          
-          echo ""
-          echo "=== Kubectl version ==="
-          kubectl version --client
-          
-          echo ""
-          echo "=== Try kubectl with verbose ==="
-          kubectl cluster-info -v=8
-
-
-      - name: Verify kubectl access
-        run: |
-          kubectl cluster-info
-          kubectl auth can-i create secrets --namespace=counter-service
+      - name: Create namespace
+        run: kubectl create namespace counter-service --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Create database secret
         run: |
