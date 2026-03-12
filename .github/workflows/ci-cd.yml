@@ -127,7 +127,7 @@ jobs:
   deploy-to-eks:
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/python-service'
     permissions:
       id-token: write
       contents: read
@@ -157,6 +157,24 @@ jobs:
           echo ""
           echo "=== Security Groups ==="
           aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.securityGroupIds' --output text
+
+      - name: Debug kubectl auth
+        run: |
+          echo "=== Current kubeconfig ==="
+          cat ~/.kube/config
+          
+          echo ""
+          echo "=== AWS STS Identity ==="
+          aws sts get-caller-identity
+          
+          echo ""
+          echo "=== Kubectl version ==="
+          kubectl version --client
+          
+          echo ""
+          echo "=== Try kubectl with verbose ==="
+          kubectl cluster-info -v=8
+
 
       - name: Verify kubectl access
         run: |
