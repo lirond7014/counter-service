@@ -139,6 +139,11 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
+      - name: Verify kubectl access
+        run: |
+          kubectl cluster-info
+          kubectl auth can-i create secrets --namespace=counter-service
+          
       - name: Create database secret
         run: |
           kubectl create secret generic counter-db-secret \
