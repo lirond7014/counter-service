@@ -7,7 +7,6 @@ resources:
   - deployment.yml
   - service.yml
   - configmap.yml
-  - secret.yaml
   - serviceaccount.yml
   - postgres.yaml
 
