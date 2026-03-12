@@ -80,7 +80,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     needs: [backend-tests, frontend-tests]
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/python-service'
     permissions:
       id-token: write
       contents: read
@@ -145,23 +145,23 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
+      - name: Test cluster connectivity
+        run: |
+          echo "=== Cluster Endpoint ==="
+          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.endpoint' --output text
+          
+          echo ""
+          echo "=== Public Access Enabled ==="
+          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.endpointPublicAccess'
+          
+          echo ""
+          echo "=== Security Groups ==="
+          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.securityGroupIds' --output text
+
       - name: Verify kubectl access
         run: |
           kubectl cluster-info
           kubectl auth can-i create secrets --namespace=counter-service
-      
-      - name: Test cluster connectivity
-        run: |
-          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.endpoint' --output text
-          curl -I $(aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.endpoint' --output text)
-
-      - name: Check cluster public access
-        run: |
-              aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.endpointPublicAccess'
-
-      - name: Check security group
-        run: |
-            aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.securityGroupIds' --output text
 
       - name: Create database secret
         run: |
