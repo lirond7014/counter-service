@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ main, python-service ]
   pull_request:
     branches: [ main ]
 
@@ -149,7 +149,20 @@ jobs:
         run: |
           kubectl cluster-info
           kubectl auth can-i create secrets --namespace=counter-service
-          
+      
+      - name: Test cluster connectivity
+        run: |
+          aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.endpoint' --output text
+          curl -I $(aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.endpoint' --output text)
+
+      - name: Check cluster public access
+        run: |
+              aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.endpointPublicAccess'
+
+      - name: Check security group
+        run: |
+            aws eks describe-cluster --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }} --query 'cluster.resourcesVpcConfig.securityGroupIds' --output text
+
       - name: Create database secret
         run: |
           kubectl create secret generic counter-db-secret \
