@@ -149,7 +149,7 @@ jobs:
         run: |
           kubectl create secret generic counter-db-secret \
             --from-literal=password="${{ secrets.DB_PASSWORD }}" \
-            --namespace=counter-service \
+            --from-literal=username="${{ secrets.DB_USER }}" \
             --dry-run=client -o yaml | kubectl apply -f -
 
       - name: Deploy with Kustomize
