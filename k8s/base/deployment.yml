@@ -1,0 +1,260 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: counter-service
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter-backend
+  namespace: counter-service
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      component: backend
+  template:
+    metadata:
+      labels:
+        component: backend
+    spec:
+      serviceAccountName: counter-service
+      
+      # Pod disruption handling
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: component
+                      operator: In
+                      values:
+                        - backend
+                topologyKey: kubernetes.io/hostname
+
+      # Graceful shutdown
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: backend
+          image: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter:backend-latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+
+          # Environment variables from ConfigMap and Secrets
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: counter-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: counter-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: counter-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: counter-config
+                  key: DB_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: counter-db-secret
+                  key: password
+            - name: SERVICE_NAME
+              value: "counter-service"
+            - name: SERVICE_VERSION
+              value: "1.0.0"
+            - name: ENVIRONMENT
+              value: "production"
+            - name: LOG_LEVEL
+              value: "INFO"
+            - name: JAEGER_ENABLED
+              value: "false"
+            - name: CORS_ORIGINS
+              value: "*"
+
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Resource limits
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Volume mounts
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/appuser/.cache
+
+          # Lifecycle hooks for graceful shutdown
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+
+      # Volumes
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter-frontend
+  namespace: counter-service
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      component: frontend
+  template:
+    metadata:
+      labels:
+        component: frontend
+    spec:
+      serviceAccountName: counter-service
+
+      # Spread across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: component
+                      operator: In
+                      values:
+                        - frontend
+                topologyKey: kubernetes.io/hostname
+
+      terminationGracePeriodSeconds: 30
+
+      containers:
+        - name: frontend
+          image: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter:frontend-latest
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - containerPort: 80
+              name: http
+              protocol: TCP
+
+          env:
+            - name: VITE_API_URL
+              value: "http://counter-backend.counter-service.svc.cluster.local:8000"
+
+          # Health checks
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health.html
+              port: 80
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          # Resource limits
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+          # Security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 101
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+
+          # Volume mounts
+          volumeMounts:
+            - name: cache
+              mountPath: /var/cache/nginx
+            - name: run
+              mountPath: /var/run
+            - name: tmp
+              mountPath: /tmp
+
+      volumes:
+        - name: cache
+          emptyDir: {}
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
