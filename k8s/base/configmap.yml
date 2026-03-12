@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: counter-config
+  namespace: counter-service
+data:
+  DB_HOST: "counter-postgres"
+  DB_PORT: "5432"
+  DB_NAME: "counter_service_db"
