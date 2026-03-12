@@ -5,10 +5,10 @@ namespace: counter-service
 
 resources:
   - deployment.yml
-  - service.yaml
-  - configmap.yaml
-  - secret.yaml
-  - serviceaccount.yaml
+  - service.yml
+  - configmap.yml
+  - secret.yml
+  - serviceaccount.yml
   - postgres.yaml
 
 commonLabels:

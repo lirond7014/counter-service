@@ -87,6 +87,7 @@ aws-credentials
 
 # Kubernetes
 kubeconfig
+k8s/base/secret.yaml
 
 # Terraform
 *.tfstate
