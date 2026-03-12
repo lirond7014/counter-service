@@ -139,6 +139,13 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
+      - name: Create database secret
+        run: |
+          kubectl create secret generic counter-db-secret \
+            --from-literal=password="${{ secrets.DB_PASSWORD }}" \
+            --namespace=counter-service \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Deploy with Kustomize
         run: |
           kubectl apply -k k8s/base/
