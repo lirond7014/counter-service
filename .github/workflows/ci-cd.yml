@@ -145,9 +145,6 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
 
-      - name: Create namespace
-        run: kubectl create namespace counter-service --dry-run=client -o yaml | kubectl apply -f -
-
       - name: Create database secret
         run: |
           kubectl create secret generic counter-db-secret \
