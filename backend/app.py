@@ -9,6 +9,10 @@ Features:
 - Graceful shutdown
 - CORS support for frontend
 """
+from dotenv import load_dotenv
+
+# Load .env file
+load_dotenv()
 
 import os
 import json
@@ -202,8 +206,6 @@ async def lifespan(app: FastAPI):
     init_pool()
     init_table()
     setup_tracing()
-    FastAPIInstrumentor.instrument_app(app)
-    Psycopg2Instrumentor().instrument()
 
     yield
 
@@ -223,6 +225,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+FastAPIInstrumentor.instrument_app(app)
+Psycopg2Instrumentor().instrument()
 
 # runs on every request - logs it and tracks duration
 @app.middleware("http")

@@ -1,5 +1,5 @@
 # Build stage
-FROM node:20-alpine as builder
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
@@ -10,27 +10,15 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM node:22-alpine
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/nginx.conf
+WORKDIR /app
 
-# Copy built application from builder
-COPY --from=builder /app/dist /usr/share/nginx/html
+# Install serve to run the production build
+RUN npm install -g serve
 
-# Create non-root user
-RUN addgroup -g 101 -S nginx && \
-    adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -c "Nginx web server" -G nginx nginx
+COPY --from=builder /app/dist ./dist
 
-# Set permissions
-RUN chown -R nginx:nginx /usr/share/nginx/html && \
-    chown -R nginx:nginx /var/cache/nginx && \
-    chown -R nginx:nginx /var/log/nginx && \
-    chown -R nginx:nginx /etc/nginx/conf.d
+EXPOSE 3000
 
-USER nginx
-
-EXPOSE 80
-
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost/health.html || exit 1
+CMD ["serve", "-s", "dist", "-l", "3000"]
