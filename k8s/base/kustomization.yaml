@@ -4,11 +4,11 @@ kind: Kustomization
 namespace: counter-service
 
 resources:
+  - storageClass.yml
   - deployment.yml
   - service.yml
   - configmap.yml
   - postgres.yaml
-  - storageClass.yml
   - token_job.yml
 
 commonLabels:
