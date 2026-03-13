@@ -4,4 +4,4 @@ metadata:
   name: counter-frontend
   namespace: counter-service
   annotations:
-    service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-0d29fa0e49dc39023,subnet-008b8f6d7715abc73,subnet-059ec78ac2906d2a1,subnet-0b637bbceaf8649b1"
+    service.beta.kubernetes.io/aws-load-balancer-subnets: "subnet-0d29fa0e49dc39023,subnet-008b8f6d7715abc73"
