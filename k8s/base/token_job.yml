@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ecr-credential-refresh
+  namespace: counter-service
+spec:
+  schedule: "0 */6 * * *"  # Every 6 hours
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: ecr-credential-refresher
+          containers:
+          - name: ecr-login
+            image: amazon/aws-cli:latest
+            env:
+            - name: AWS_DEFAULT_REGION
+              value: eu-west-2
+            - name: ECR_REGISTRY
+              value: "630943284793.dkr.ecr.eu-west-2.amazonaws.com"
+            command:
+            - /bin/sh
+            - -c
+            - |
+              TOKEN=$(aws ecr get-authorization-token --query authorizationData[0].authorizationToken --output text)
+              kubectl create secret docker-registry ecr-secret \
+                --docker-server=$ECR_REGISTRY \
+                --docker-username=AWS \
+                --docker-password=$TOKEN \
+                -n counter-service --dry-run=client -o yaml | kubectl apply -f -
+          restartPolicy: OnFailure
