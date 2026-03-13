@@ -8,8 +8,8 @@ resources:
   - service.yml
   - configmap.yml
   - postgres.yaml
-  - storageclass.yaml
-  - token_job.yaml
+  - storageClass.yml
+  - token_job.yml
 
 commonLabels:
   app: counter-service
