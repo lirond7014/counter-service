@@ -159,8 +159,8 @@ jobs:
           ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
         run: |
           kubectl apply -k k8s/base/
-          kubectl set image deployment/counter-backend backend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-${{ github.sha }} -n counter-service
-          kubectl set image deployment/counter-frontend frontend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-${{ github.sha }} -n counter-service
+          kubectl set image deployment/counter-backend backend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-latest -n counter-service
+          kubectl set image deployment/counter-frontend frontend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-latest -n counter-service
           kubectl rollout status deployment/counter-backend -n counter-service --timeout=5m
           kubectl rollout status deployment/counter-frontend -n counter-service --timeout=5m
 
