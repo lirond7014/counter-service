@@ -4,7 +4,7 @@ metadata:
   name: counter-postgres-pvc
   namespace: counter-service
 spec:
-  storageClassName: ebs-storage  # ADD THIS LINE
+  storageClassName: efs-storage
   accessModes:
     - ReadWriteOnce
   resources:

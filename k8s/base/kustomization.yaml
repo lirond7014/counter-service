@@ -4,7 +4,7 @@ kind: Kustomization
 namespace: counter-service
 
 resources:
-  - storageClass.yml
+  - storageclass-efs.yml
   - deployment.yml
   - service.yml
   - configmap.yml

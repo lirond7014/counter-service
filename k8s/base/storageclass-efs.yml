@@ -1,0 +1,12 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: efs-storage
+provisioner: efs.csi.aws.com
+parameters:
+  basePath: "/postgres"
+  subPathPattern: "${.PVC.namespace}/${.PVC.name}"
+  ensureUnmountedPath: "true"
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
