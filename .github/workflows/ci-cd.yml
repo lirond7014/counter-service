@@ -155,6 +155,8 @@ jobs:
       - name: Deploy with Kustomize
         run: |
           kubectl apply -k k8s/base/
+          kubectl set image deployment/counter-backend backend=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:backend-${{ github.sha }} -n counter-service
+          kubectl set image deployment/counter-frontend frontend=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:frontend-${{ github.sha }} -n counter-service
           kubectl rollout status deployment/counter-backend -n counter-service --timeout=5m
           kubectl rollout status deployment/counter-frontend -n counter-service --timeout=5m
 

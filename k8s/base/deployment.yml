@@ -40,7 +40,7 @@ spec:
       containers:
         - name: backend
           image: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter:backend-latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 8000
@@ -187,7 +187,7 @@ spec:
       containers:
         - name: frontend
           image: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter:frontend-latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
 
           ports:
             - containerPort: 80
