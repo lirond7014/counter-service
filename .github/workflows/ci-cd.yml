@@ -3,7 +3,7 @@ name: CI/CD Pipeline
 on:
   workflow_dispatch:
   push:
-    branches: [ main, python-service ]
+    branches: [ main, bonuses ]
   pull_request:
     branches: [ main ]
 
@@ -80,7 +80,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     needs: [backend-tests, frontend-tests]
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/python-service'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bonuses'
     permissions:
       id-token: write
       contents: read
@@ -129,7 +129,7 @@ jobs:
   deploy-to-eks:
     runs-on: ubuntu-latest
     needs: build-and-push
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/python-service'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/bonuses'
     permissions:
       id-token: write
       contents: read
