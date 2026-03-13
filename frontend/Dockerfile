@@ -1,6 +1,5 @@
 # Build stage
 FROM node:22-alpine AS builder
-
 WORKDIR /app
 
 COPY package*.json ./
@@ -9,16 +8,11 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Production stage
-FROM node:22-alpine
+# Runtime stage (nginx)
+FROM nginx:1.27-alpine
 
-WORKDIR /app
+COPY --from=builder /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
 
-# Install serve to run the production build
-RUN npm install -g serve
-
-COPY --from=builder /app/dist ./dist
-
-EXPOSE 3000
-
-CMD ["serve", "-s", "dist", "-l", "3000"]
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

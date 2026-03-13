@@ -2,34 +2,42 @@ apiVersion: v1
 kind: Service
 metadata:
   name: counter-backend
-  namespace: counter-service
-  labels:
-    component: backend
 spec:
   type: ClusterIP
-  ports:
-    - port: 8000
-      targetPort: 8000
-      protocol: TCP
-      name: http
   selector:
     component: backend
-  sessionAffinity: None
-
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: counter-frontend
-  namespace: counter-service
-  labels:
-    component: frontend
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
 spec:
   type: LoadBalancer
-  ports:
-    - port: 80
-      targetPort: 80
-      protocol: TCP
-      name: http
+  loadBalancerClass: eks.amazonaws.com/nlb
+  externalTrafficPolicy: Cluster
   selector:
     component: frontend
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: counter-postgres
+spec:
+  type: ClusterIP
+  selector:
+    component: database
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432

@@ -7,8 +7,8 @@ resources:
   - deployment.yml
   - service.yml
   - configmap.yml
-  - serviceaccount.yml
   - postgres.yaml
+  - token_job.yml
 
 commonLabels:
   app: counter-service
