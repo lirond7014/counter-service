@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: counter-service
 
 resources:
+  - pdb-postgres.yml
   - pdb.yml
   - deployment.yml
   - service.yml
