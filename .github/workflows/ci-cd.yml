@@ -159,10 +159,51 @@ jobs:
           ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
         run: |
           kubectl apply -k k8s/overlays/standard/
-          kubectl set image deployment/counter-backend backend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-latest -n counter-service
-          kubectl set image deployment/counter-frontend frontend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-latest -n counter-service
+          kubectl set image deployment/counter-backend backend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-${{ github.sha }} -n counter-service
+          kubectl set image deployment/counter-frontend frontend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-${{ github.sha }} -n counter-service
           kubectl rollout status deployment/counter-backend -n counter-service --timeout=5m
           kubectl rollout status deployment/counter-frontend -n counter-service --timeout=5m
+
+      - name: Smoke test (external)
+        run: |
+          set -euo pipefail
+
+          NS="counter-service"
+          SVC="counter-frontend"
+
+          echo "Waiting for LoadBalancer hostname..."
+          for i in {1..30}; do
+            LB=$(kubectl -n "$NS" get svc "$SVC" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+            if [ -n "${LB:-}" ]; then
+              break
+            fi
+            sleep 10
+          done
+
+          if [ -z "${LB:-}" ]; then
+            echo "ERROR: LoadBalancer hostname was not assigned in time"
+            kubectl -n "$NS" describe svc "$SVC" || true
+            exit 1
+          fi
+
+          echo "LoadBalancer hostname: $LB"
+          echo "DNS lookup:"
+          nslookup "$LB" || true
+
+          echo "HTTP check (may take a bit right after provisioning)..."
+          for i in {1..20}; do
+            if curl -fsS --max-time 10 "http://$LB/" >/dev/null; then
+              echo "Smoke test OK"
+              exit 0
+            fi
+            echo "Not reachable yet, retrying..."
+            sleep 10
+          done
+
+          echo "ERROR: Frontend not reachable via LoadBalancer after retries"
+          kubectl -n "$NS" get pods -o wide || true
+          kubectl -n "$NS" describe svc "$SVC" || true
+          exit 1
 
       - name: Get service URLs
         run: |

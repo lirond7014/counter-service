@@ -27,6 +27,9 @@ spec:
       labels:
         component: database
     spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: postgres
         image: postgres:16-alpine

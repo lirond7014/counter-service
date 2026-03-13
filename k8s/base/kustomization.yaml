@@ -13,6 +13,7 @@ resources:
   - token_job.yml
   - hpa-backend.yml
   - hpa-frontend.yml
+  - startupProbe-backend.yml
 
 commonLabels:
   app: counter-service
