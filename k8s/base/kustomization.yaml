@@ -11,6 +11,8 @@ resources:
   - configmap.yml
   - postgres.yaml
   - token_job.yml
+  - hpa-backend.yml
+  - hpa-frontend.yml
 
 commonLabels:
   app: counter-service
