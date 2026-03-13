@@ -7,7 +7,11 @@ parameters:
   basePath: "/postgres"
   subPathPattern: "${.PVC.namespace}/${.PVC.name}"
   ensureUnmountedPath: "true"
-  provisioningMode: "efs"
+  provisioningMode: "efs-ap"
+  fileSystemId: "fs-04c766103518e0935"
+  directoryPerms: "700"
+  uid: "70"
+  gid: "70"
 reclaimPolicy: Delete
 allowVolumeExpansion: true
 volumeBindingMode: WaitForFirstConsumer
