@@ -104,15 +104,22 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push backend image
+      - name: Build backend image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: backend-${{ github.sha }}
         run: |
           cd backend
-          docker build -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-latest .
+          docker build --pull --no-cache -f Dockerfile \
+            -t $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG .
+
+          docker run --rm $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG \
+            python -c "import uvicorn, fastapi; print(uvicorn.__version__)"
+
           docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG
-          docker push $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-latest
+
+          DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' $ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:$IMAGE_TAG)
+          echo "BACKEND_IMAGE=$DIGEST" >> $GITHUB_ENV
 
       - name: Build and push frontend image
         env:
@@ -153,12 +160,19 @@ jobs:
             --dry-run=client -o yaml | kubectl apply -f - -n counter-service
 
       - name: Deploy with Kustomize
+        env:
+          ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
         run: |
           kubectl apply -k k8s/base/
-          kubectl set image deployment/counter-backend backend=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:backend-${{ github.sha }} -n counter-service
-          kubectl set image deployment/counter-frontend frontend=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:frontend-${{ github.sha }} -n counter-service
+          kubectl set image deployment/counter-backend backend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:backend-${{ github.sha }} -n counter-service
+          kubectl set image deployment/counter-frontend frontend=$ECR_REGISTRY/${{ env.ECR_REPOSITORY }}:frontend-${{ github.sha }} -n counter-service
           kubectl rollout status deployment/counter-backend -n counter-service --timeout=5m
           kubectl rollout status deployment/counter-frontend -n counter-service --timeout=5m
+
+      - name: Deploy backend image by digest
+        run: |
+          kubectl set image deployment/counter-backend backend=${{ env.BACKEND_IMAGE }} -n counter-service
+          kubectl rollout status deployment/counter-backend -n counter-service --timeout=5m
 
       - name: Get service URLs
         run: |
