@@ -1,0 +1,31 @@
+[tool.ruff]
+# Keep lines readable in logs and YAML
+line-length = 100
+
+# You’re using Python 3.12 in GitHub Actions
+target-version = "py312"
+
+# If you have generated files, exclude them here
+exclude = [
+  ".venv",
+  "venv",
+  "__pycache__",
+  "build",
+  "dist",
+]
+
+[tool.ruff.lint]
+# What we lint for:
+# E, F: pycodestyle + pyflakes (common bugs: unused imports, undefined names)
+# I: import sorting (isort-like)
+# B: bugbear (common footguns)
+# UP: pyupgrade (modernize syntax safely)
+select = ["E", "F", "I", "B", "UP"]
+
+# Ignore "line too long" because formatting/URLs/env strings can legitimately exceed limit.
+ignore = ["E501"]
+
+[tool.ruff.format]
+# Stable formatting choices (optional)
+quote-style = "double"
+indent-style = "space"

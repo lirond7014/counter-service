@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: counter-service
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/lirond7014/counter-service.git
+    targetRevision: main
+    path: charts/counter-service
+    helm:
+      releaseName: counter-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: counter-service
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

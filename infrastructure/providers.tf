@@ -1,6 +1,6 @@
 terraform {
   required_version = ">= 1.0"
-  
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -12,7 +12,7 @@ terraform {
   # IMPORTANT: You must manually create the S3 bucket and DynamoDB table first!
   # See README.md for setup instructions
   backend "s3" {
-    bucket         = "liron-counter-service-terraform-state"  
+    bucket         = "liron-counter-service-terraform-state"
     key            = "prod/terraform.tfstate"
     region         = "eu-west-2"
     dynamodb_table = "liron-counter-service-lock"
