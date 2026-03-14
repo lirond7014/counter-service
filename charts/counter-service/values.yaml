@@ -6,11 +6,11 @@ replicaCount:
 image:
   backend:
     repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter
-    tag: backend-99dff084dea2b7ca4f9b664789807e98587f479b
+    tag: backend-1883224640d27191ec00858bad2d250dbb8d078a
     pullPolicy: Always
   frontend:
     repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter
-    tag: frontend-99dff084dea2b7ca4f9b664789807e98587f479b
+    tag: frontend-1883224640d27191ec00858bad2d250dbb8d078a
     pullPolicy: Always
 serviceAccount:
   # Reuse your existing SA (as in your current Deployments)
