@@ -169,11 +169,11 @@ jobs:
           set -euo pipefail
 
           NS="counter-service"
-          SVC="counter-frontend"
+          ING="counter-frontend"
 
-          echo "Waiting for LoadBalancer hostname..."
-          for i in {1..30}; do
-            LB=$(kubectl -n "$NS" get svc "$SVC" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
+          echo "Waiting for Ingress address..."
+          for i in {1..60}; do
+            LB=$(kubectl -n "$NS" get ingress "$ING" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || true)
             if [ -n "${LB:-}" ]; then
               break
             fi
@@ -181,17 +181,17 @@ jobs:
           done
 
           if [ -z "${LB:-}" ]; then
-            echo "ERROR: LoadBalancer hostname was not assigned in time"
-            kubectl -n "$NS" describe svc "$SVC" || true
+            echo "ERROR: Ingress hostname was not assigned in time"
+            kubectl -n "$NS" describe ingress "$ING" || true
             exit 1
           fi
 
-          echo "LoadBalancer hostname: $LB"
+          echo "Ingress hostname: $LB"
           echo "DNS lookup:"
           nslookup "$LB" || true
 
           echo "HTTP check (may take a bit right after provisioning)..."
-          for i in {1..20}; do
+          for i in {1..30}; do
             if curl -fsS --max-time 10 "http://$LB/" >/dev/null; then
               echo "Smoke test OK"
               exit 0
@@ -200,9 +200,9 @@ jobs:
             sleep 10
           done
 
-          echo "ERROR: Frontend not reachable via LoadBalancer after retries"
+          echo "ERROR: Frontend not reachable via Ingress after retries"
           kubectl -n "$NS" get pods -o wide || true
-          kubectl -n "$NS" describe svc "$SVC" || true
+          kubectl -n "$NS" describe ingress "$ING" || true
           exit 1
 
       - name: Get service URLs
