@@ -1,0 +1,150 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: counter-backend
+  labels:
+    {{- include "counter-service.labels" . | nindent 4 }}
+    component: backend
+spec:
+  replicas: {{ .Values.replicaCount.backend }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "counter-service.selectorLabels" . | nindent 6 }}
+      component: backend
+  template:
+    metadata:
+      labels:
+        {{- include "counter-service.selectorLabels" . | nindent 8 }}
+        component: backend
+        # keep the old label too (useful for existing selectors/metrics)
+        app: counter-service
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+
+      terminationGracePeriodSeconds: 30
+
+      {{- if .Values.topologySpreadConstraints.enabled }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "counter-service.selectorLabels" . | nindent 14 }}
+              component: backend
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              {{- include "counter-service.selectorLabels" . | nindent 14 }}
+              component: backend
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: component
+                    operator: In
+                    values: [backend]
+              topologyKey: kubernetes.io/hostname
+      {{- end }}
+
+      containers:
+        - name: backend
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.backend.containerPort }}
+              name: http
+              protocol: TCP
+
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: counter-config
+                  key: DB_HOST
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: counter-config
+                  key: DB_PORT
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: counter-config
+                  key: DB_NAME
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret.name }}
+                  key: {{ .Values.db.existingSecret.usernameKey }}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.db.existingSecret.name }}
+                  key: {{ .Values.db.existingSecret.passwordKey }}
+
+            - name: SERVICE_NAME
+              value: {{ .Values.backend.env.serviceName | quote }}
+            - name: SERVICE_VERSION
+              value: {{ .Values.backend.env.serviceVersion | quote }}
+            - name: ENVIRONMENT
+              value: {{ .Values.backend.env.environment | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.backend.env.logLevel | quote }}
+            - name: JAEGER_ENABLED
+              value: {{ .Values.backend.env.jaegerEnabled | quote }}
+            - name: CORS_ORIGINS
+              value: {{ .Values.backend.env.corsOrigins | quote }}
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{ .Values.backend.containerPort }}
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: {{ .Values.backend.containerPort }}
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            {{- toYaml .Values.securityContext | nindent 12 }}
+
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: cache
+              mountPath: /home/appuser/.cache
+
+          lifecycle:
+            preStop:
+              exec:
+                command: ["/bin/sh", "-c", "sleep 15"]
+
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: cache
+          emptyDir: {}
