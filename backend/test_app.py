@@ -1,8 +1,9 @@
 """Unit tests for counter service"""
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import psycopg2
+import pytest
 
 # Mock psycopg2 pool BEFORE importing app
 with patch('psycopg2.pool.SimpleConnectionPool'):
