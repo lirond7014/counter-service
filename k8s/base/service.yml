@@ -2,6 +2,9 @@ apiVersion: v1
 kind: Service
 metadata:
   name: counter-backend
+  namespace: counter-service
+  labels:
+    component: backend
 spec:
   type: ClusterIP
   selector:
@@ -24,16 +27,3 @@ spec:
       protocol: TCP
       port: 80
       targetPort: 80
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: counter-postgres
-spec:
-  type: ClusterIP
-  selector:
-    component: database
-  ports:
-    - name: postgres
-      port: 5432
-      targetPort: 5432

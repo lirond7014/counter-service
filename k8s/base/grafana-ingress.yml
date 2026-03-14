@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/subnets: subnet-0d29fa0e49dc39023,subnet-008b8f6d7715abc73
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kube-prometheus-stack-grafana
+                port:
+                  number: 80

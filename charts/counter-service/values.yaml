@@ -1,0 +1,108 @@
+nameOverride: ""
+fullnameOverride: ""
+
+replicaCount:
+  backend: 2
+  frontend: 2
+
+image:
+  backend:
+    repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter
+    tag: backend-latest
+    pullPolicy: Always
+  frontend:
+    repository: 630943284793.dkr.ecr.eu-west-2.amazonaws.com/liron-counter
+    tag: frontend-latest
+    pullPolicy: Always
+
+serviceAccount:
+  # Reuse your existing SA (as in your current Deployments)
+  name: counter-service
+
+db:
+  host: liron-counter-db.c360efet38pa.eu-west-2.rds.amazonaws.com
+  port: "5432"
+  name: counter_service_db
+  existingSecret:
+    name: counter-db-secret
+    usernameKey: username
+    passwordKey: password
+
+backend:
+  containerPort: 8000
+  env:
+    serviceName: "counter-service"
+    serviceVersion: "1.0.0"
+    environment: "production"
+    logLevel: "INFO"
+    jaegerEnabled: "false"
+    corsOrigins: "*"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+frontend:
+  containerPort: 80
+  env:
+    viteApiUrl: "http://counter-backend.counter-service.svc.cluster.local:8000"
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+topologySpreadConstraints:
+  enabled: true
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+hpa:
+  enabled: true
+  backend:
+    minReplicas: 2
+    maxReplicas: 6
+    averageUtilization: 70
+  frontend:
+    minReplicas: 2
+    maxReplicas: 4
+    averageUtilization: 70
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    # keep your existing "force public subnets" behavior, but configurable:
+    alb.ingress.kubernetes.io/subnets: "subnet-0d29fa0e49dc39023,subnet-008b8f6d7715abc73"
+  path: /
+  pathType: Prefix
+
+ecrCredentialRefresh:
+  enabled: false
+  schedule: "0 */6 * * *"
+  awsRegion: eu-west-2
+  ecrRegistry: "630943284793.dkr.ecr.eu-west-2.amazonaws.com"
+  serviceAccountName: ecr-credential-refresher
+  image: amazon/aws-cli:latest

@@ -1,0 +1,34 @@
+{{- if .Values.ecrCredentialRefresh.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: ecr-credential-refresh
+  labels:
+    {{- include "counter-service.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.ecrCredentialRefresh.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ .Values.ecrCredentialRefresh.serviceAccountName }}
+          restartPolicy: OnFailure
+          containers:
+            - name: ecr-login
+              image: {{ .Values.ecrCredentialRefresh.image | quote }}
+              env:
+                - name: AWS_DEFAULT_REGION
+                  value: {{ .Values.ecrCredentialRefresh.awsRegion | quote }}
+                - name: ECR_REGISTRY
+                  value: {{ .Values.ecrCredentialRefresh.ecrRegistry | quote }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  TOKEN=$(aws ecr get-authorization-token --query authorizationData[0].authorizationToken --output text)
+                  kubectl create secret docker-registry ecr-secret \
+                    --docker-server=$ECR_REGISTRY \
+                    --docker-username=AWS \
+                    --docker-password=$TOKEN \
+                    -n {{ .Release.Namespace }} --dry-run=client -o yaml | kubectl apply -f -
+{{- end }}
