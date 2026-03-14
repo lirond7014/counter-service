@@ -9,12 +9,12 @@ resources:
   - deployment.yml
   - service.yml
   - configmap.yml
-  - postgres.yaml
   - token_job.yml
   - hpa-backend.yml
   - hpa-frontend.yml
   - startupProbe-backend.yml
   - ingress-frontend.yml
+  - grafana-ingress.yml
 
 commonLabels:
   app: counter-service
