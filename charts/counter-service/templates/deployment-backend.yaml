@@ -92,6 +92,8 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.db.existingSecret.name }}
                   key: {{ .Values.db.existingSecret.passwordKey }}
+            - name: DB_SSLMODE
+              value: {{ .Values.db.sslmode | quote }}
 
             - name: SERVICE_NAME
               value: {{ .Values.backend.env.serviceName | quote }}
