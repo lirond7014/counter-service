@@ -14,6 +14,7 @@ resources:
   - hpa-backend.yml
   - hpa-frontend.yml
   - startupProbe-backend.yml
+  - ingress-frontend.yml
 
 commonLabels:
   app: counter-service
