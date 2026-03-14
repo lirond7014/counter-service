@@ -71,8 +71,7 @@ argocd login localhost:8080 --insecure
 argocd app get counter-service
 argocd app sync counter-service
 argocd app history counter-service
-
-
+```
 
 ---
 
@@ -250,3 +249,119 @@ terraform plan
 
 - `plan` is read-only.
 - `apply` changes AWS resources and requires appropriate permissions/change approval.
+
+---
+
+## Notes on HA, scaling, persistence choices, and trade-offs
+
+This section documents the design decisions required by the assignment: **HA**, **scaling**, **persistence**, and the main **trade-offs**.
+
+### High availability (HA)
+
+#### What we implemented
+The service is designed to remain available during:
+- pod crashes / restarts
+- node drains / evictions (planned disruption)
+- rolling deployments via Argo CD
+
+We implemented:
+- **Multiple replicas** for both frontend and backend Deployments
+- A **PodDisruptionBudget (PDB)** to limit simultaneous voluntary disruptions
+- Application health checks (liveness/readiness) so Kubernetes only routes traffic to ready pods
+
+Verification commands:
+```bash
+kubectl -n counter-service get deploy,pods -o wide
+kubectl -n counter-service get pdb
+kubectl -n counter-service describe pdb
+```
+
+#### Trade-offs
+- More replicas increase availability and allow rolling updates with minimal downtime, but cost more (CPU/memory).
+- PDBs protect availability during voluntary disruptions, but can slow down cluster autoscaler/Karpenter consolidation and node rotations if too strict.
+
+> Note on restarts that “look like redeployments”:
+> In EKS environments with node autoscaling/consolidation, pods may be evicted and rescheduled even without a Git change. This is expected behavior and should be handled by replicas + PDBs.
+
+---
+
+### Scaling (replicas + HPA)
+
+#### What we implemented
+We implemented **Horizontal Pod Autoscalers (HPAs)** for **both the backend and the frontend**.
+
+Verification commands:
+```bash
+kubectl -n counter-service get hpa
+kubectl -n counter-service describe hpa <BACKEND_HPA_NAME>
+kubectl -n counter-service describe hpa <FRONTEND_HPA_NAME>
+kubectl -n counter-service top pods
+kubectl -n counter-service top nodes
+```
+
+#### How scaling works (practically)
+- The HPA increases/decreases replicas based on observed load (commonly CPU utilization).
+- Replicas allow the service to survive single-pod or single-node failures and also absorb traffic spikes.
+
+#### Trade-offs
+- CPU-based HPA is simple but not always perfectly correlated to HTTP request rate/latency.
+- Scaling the backend increases concurrent DB usage; you must ensure DB connection pooling is sized safely to avoid exhausting DB connections.
+- Frontend scaling is usually easy (stateless), but if the frontend is served as static assets behind an Ingress/ALB, you may not need high replica counts unless you serve a lot of traffic.
+
+---
+
+### Persistence choices for the counter (what we chose + alternatives)
+
+#### Chosen approach: PostgreSQL (RDS)
+The counter value is stored in PostgreSQL (RDS). This makes the counter survive:
+- backend pod restarts
+- node replacements
+- rolling deployments
+- multiple backend replicas
+
+Why this choice:
+- It supports HA cleanly because backend pods remain stateless.
+- It provides durability and operational features (backups, snapshots, monitoring) in a managed AWS service.
+
+Trade-offs:
+- Adds network dependency and some latency vs an in-memory counter
+- Requires credential management (Kubernetes Secret / external secret manager)
+- Requires careful DB connection management under scale
+
+#### Alternative 1: Local file + PVC
+Store counter in a file on a PersistentVolumeClaim.
+- Pros: simple; no external DB required.
+- Cons / trade-offs:
+  - EBS-backed PVCs are typically **ReadWriteOnce** (single writer), which complicates running multiple backend replicas.
+  - Failover can be slower, and you can accidentally create “multiple counters” if replicas don’t share storage correctly.
+
+#### Alternative 2: Redis / DynamoDB
+- Redis (ElastiCache) can use atomic operations (INCR) and is fast.
+- DynamoDB is highly available and scales well for counters.
+Trade-offs:
+- Additional AWS service(s) and IAM/security/ops overhead.
+- Requires designing idempotency/atomic increment behavior carefully.
+
+---
+
+### Storage encryption note (AWS requirement)
+The assignment requires encrypted storage.
+- RDS storage should be encrypted (KMS).
+- If PVCs/EBS volumes are used, the StorageClass should provision encrypted EBS volumes.
+
+---
+
+### Rollbacks and delivery strategy (GitOps)
+Because delivery is GitOps:
+- Roll forward by committing new image tags in Helm values.
+- Roll back by reverting the commit (or setting image tags back) and letting Argo CD sync.
+
+Best practice:
+- Use immutable image tags (commit SHA tags) so rollbacks are deterministic.
+
+---
+
+### Observability notes (logs/metrics/traces)
+- **Metrics:** backend exposes Prometheus metrics; ServiceMonitor is included.
+- **Logs:** application logs should be structured (JSON is recommended). Viewing logs in Grafana typically requires a log backend such as **Loki** (Grafana does not store logs itself).
+- **Tracing (bonus):** OpenTelemetry libraries are included; a tracing backend (e.g., Jaeger) is required to view traces.
