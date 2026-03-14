@@ -158,7 +158,7 @@ variable "db_password" {
   description = "RDS master password"
   type        = string
   sensitive   = true
-  default     = "ChangeMe123!"  # Change this to a secure password!
+  default     = "ChangeMe123!"
 }
 
 variable "db_multi_az" {
@@ -181,4 +181,16 @@ variable "common_tags" {
     Environment = "dev"
     ManagedBy   = "Terraform"
   }
+}
+
+variable "my_ip" {
+  description = "Your IP address for kubectl access"
+  type        = string
+  default     = "5.29.141.76"
+}
+
+variable "node_security_group_id" {
+  description = "The security group ID of the EKS worker nodes"
+  type        = string
+  default     = "sg-0d37ea403bd829ab6"
 }

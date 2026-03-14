@@ -15,18 +15,13 @@ data "aws_vpc" "platform" {
   id = var.vpc_id
 }
 
-# Reference the existing subnets
-data "aws_subnets" "private" {
-  filter {
-    name   = "subnet-id"
-    values = var.private_subnet_ids
-  }
-}
-
 # Reference the existing Node IAM role
 data "aws_iam_role" "node_group" {
   name = var.node_iam_role_name
 }
+
+# Get AWS account ID
+data "aws_caller_identity" "current" {}
 
 # ====== ECR CONTAINER REGISTRY ======
 # Private Docker image repository
@@ -57,9 +52,9 @@ resource "aws_ecr_lifecycle_policy" "counter_service" {
         rulePriority = 1
         description  = "Keep last 10 images"
         selection = {
-          tagStatus     = "any"
-          countType     = "imageCountMoreThan"
-          countNumber   = var.ecr_image_retention_count
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = var.ecr_image_retention_count
         }
         action = {
           type = "expire"
@@ -87,9 +82,9 @@ module "rds" {
   instance_class = var.db_instance_class
 
   # Storage configuration
-  allocated_storage     = var.db_allocated_storage
-  storage_encrypted     = var.db_storage_encrypted
-  storage_type          = "gp3"
+  allocated_storage = var.db_allocated_storage
+  storage_encrypted = var.db_storage_encrypted
+  storage_type      = "gp3"
 
   # Database credentials
   db_name  = var.db_name
@@ -114,10 +109,10 @@ module "rds" {
   tags = var.common_tags
 }
 
-# Create RDS subnet group from existing subnets
+# Create RDS subnet group from discovered private subnets
 resource "aws_db_subnet_group" "rds" {
   name       = "${var.cluster_name}-db-subnets"
-  subnet_ids = data.aws_subnets.private.ids
+  subnet_ids = local.private_subnet_ids
   tags       = var.common_tags
 }
 
@@ -128,14 +123,6 @@ resource "aws_security_group" "rds" {
   description = "Security group for RDS PostgreSQL database"
   vpc_id      = data.aws_vpc.platform.id
 
-  ingress {
-    description = "PostgreSQL from EKS worker nodes"
-    from_port   = 5432
-    to_port     = 5432
-    protocol    = "tcp"
-    cidr_blocks = [data.aws_vpc.platform.cidr_block]
-  }
-
   egress {
     description = "Allow all outbound traffic"
     from_port   = 0
@@ -145,4 +132,138 @@ resource "aws_security_group" "rds" {
   }
 
   tags = var.common_tags
+}
+
+resource "aws_security_group_rule" "rds_postgres_from_nodes" {
+  type                     = "ingress"
+  description              = "PostgreSQL from EKS worker nodes"
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.rds.id
+  source_security_group_id = data.aws_security_group.node_existing.id
+}
+
+
+
+# ====== NODE SECURITY GROUP LOOKUP ======
+# Reference the existing node security group
+data "aws_security_group" "node_existing" {
+  id = var.node_security_group_id
+}
+
+# ====== ADD MISSING ECR API ENDPOINT RULE ======
+# Allow nodes to reach the cluster shared security group on 443 (used by your endpoints setup)
+resource "aws_security_group_rule" "ecr_api_https_from_nodes" {
+  type                     = "ingress"
+  from_port                = 443
+  to_port                  = 443
+  protocol                 = "tcp"
+  source_security_group_id = data.aws_security_group.node_existing.id
+  security_group_id        = data.aws_security_group.cluster_shared.id
+  description              = "Allow nodes to pull from ECR API endpoint"
+}
+
+# ====== EBS CSI DRIVER ADDON ======
+# Required for EBS volume provisioning with StorageClass
+
+# Create IAM role for EBS CSI driver
+resource "aws_iam_role" "ebs_csi_driver" {
+  name = "${var.cluster_name}-ebs-csi-driver"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Effect = "Allow"
+        Principal = {
+          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/${replace(data.aws_eks_cluster.platform.identity[0].oidc[0].issuer, "https://", "")}"
+        }
+        Condition = {
+          StringEquals = {
+            "${replace(data.aws_eks_cluster.platform.identity[0].oidc[0].issuer, "https://", "")}:sub" = "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+            "${replace(data.aws_eks_cluster.platform.identity[0].oidc[0].issuer, "https://", "")}:aud" = "sts.amazonaws.com"
+          }
+        }
+      }
+    ]
+  })
+
+  tags = var.common_tags
+}
+
+# Attach the AWS managed policy for EBS CSI driver
+resource "aws_iam_role_policy_attachment" "ebs_csi_driver" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+  role       = aws_iam_role.ebs_csi_driver.name
+}
+
+# Install EBS CSI driver addon
+resource "aws_eks_addon" "ebs_csi_driver" {
+  cluster_name             = data.aws_eks_cluster.platform.name
+  addon_name               = "aws-ebs-csi-driver"
+  addon_version            = "v1.56.0-eksbuild.1"
+  service_account_role_arn = aws_iam_role.ebs_csi_driver.arn
+
+  tags = var.common_tags
+
+  depends_on = [aws_iam_role_policy_attachment.ebs_csi_driver]
+}
+
+# ====== NODE ECR PULL POLICY (attached inline to node role) ======
+resource "aws_iam_role_policy" "node_ecr_pull" {
+  name = "${var.cluster_name}-node-ecr-pull"
+  role = data.aws_iam_role.node_group.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer"
+        ]
+        Resource = "arn:aws:ecr:*:${data.aws_caller_identity.current.account_id}:repository/eks/*"
+      }
+    ]
+  })
+}
+
+# ====== STS VPC ENDPOINT FOR EBS CSI DRIVER ======
+resource "aws_vpc_endpoint" "sts" {
+  vpc_id              = data.aws_vpc.platform.id
+  service_name        = "com.amazonaws.${var.aws_region}.sts"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+
+  subnet_ids         = local.private_subnet_ids
+  security_group_ids = [data.aws_security_group.node_existing.id]
+
+  tags = {
+    Name = "${var.cluster_name}-sts-endpoint"
+  }
+}
+
+# ====== EC2 VPC ENDPOINT FOR EBS CSI DRIVER ======
+resource "aws_vpc_endpoint" "ec2" {
+  vpc_id              = data.aws_vpc.platform.id
+  service_name        = "com.amazonaws.${var.aws_region}.ec2"
+  vpc_endpoint_type   = "Interface"
+  private_dns_enabled = true
+
+  subnet_ids         = local.private_subnet_ids
+  security_group_ids = [data.aws_security_group.node_existing.id]
+
+  tags = {
+    Name = "${var.cluster_name}-ec2-endpoint"
+  }
 }
