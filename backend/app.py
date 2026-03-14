@@ -40,6 +40,7 @@ DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_NAME = os.getenv("DB_NAME", "counterdb")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+DB_SSLMODE = os.getenv("DB_SSLMODE", "require")
 
 SERVICE_NAME = os.getenv("SERVICE_NAME", "counter-service")
 SERVICE_VERSION = os.getenv("SERVICE_VERSION", "1.0.0")
@@ -80,14 +81,15 @@ pool = None
 def init_pool():
     global pool
     pool = SimpleConnectionPool(
-        1, 5,
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        connect_timeout=10,
-    )
+    1, 5,
+    host=DB_HOST,
+    port=DB_PORT,
+    database=DB_NAME,
+    user=DB_USER,
+    password=DB_PASSWORD,
+    sslmode=DB_SSLMODE,
+    connect_timeout=10,
+)
     logger.info("db pool ready")
 
 def get_conn():

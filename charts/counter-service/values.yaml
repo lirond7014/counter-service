@@ -20,6 +20,7 @@ serviceAccount:
   name: counter-service
 
 db:
+  sslmode: require
   host: liron-counter-db.c360efet38pa.eu-west-2.rds.amazonaws.com
   port: "5432"
   name: counter_service_db
