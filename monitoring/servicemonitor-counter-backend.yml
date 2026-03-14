@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: counter-backend
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  namespaceSelector:
+    matchNames:
+      - counter-service
+  selector:
+    matchLabels:
+      app: counter-service
+      component: backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

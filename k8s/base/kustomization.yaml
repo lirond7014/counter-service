@@ -4,11 +4,17 @@ kind: Kustomization
 namespace: counter-service
 
 resources:
+  - pdb-postgres.yml
+  - pdb.yml
   - deployment.yml
   - service.yml
   - configmap.yml
   - postgres.yaml
   - token_job.yml
+  - hpa-backend.yml
+  - hpa-frontend.yml
+  - startupProbe-backend.yml
+  - ingress-frontend.yml
 
 commonLabels:
   app: counter-service

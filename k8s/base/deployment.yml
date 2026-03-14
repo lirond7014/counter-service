@@ -12,28 +12,47 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
+      app: counter-service
       component: backend
   template:
     metadata:
       labels:
+        app: counter-service
         component: backend
     spec:
       serviceAccountName: counter-service
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: counter-service
+            component: backend
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: counter-service
+            component: backend
       
       # Pod disruption handling
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: component
-                      operator: In
-                      values:
-                        - backend
-                topologyKey: kubernetes.io/hostname
-
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: component
+                    operator: In
+                    values:
+                      - backend
+              topologyKey: kubernetes.io/hostname
+    
       # Graceful shutdown
       terminationGracePeriodSeconds: 30
 
@@ -160,27 +179,46 @@ spec:
       maxUnavailable: 0
   selector:
     matchLabels:
+      app: counter-service
       component: frontend
   template:
     metadata:
       labels:
+        app: counter-service
         component: frontend
     spec:
       serviceAccountName: counter-service
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: counter-service
+            component: frontend
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: counter-service
+            component: frontend
 
       # Spread across nodes
       affinity:
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - weight: 100
-              podAffinityTerm:
-                labelSelector:
-                  matchExpressions:
-                    - key: component
-                      operator: In
-                      values:
-                        - frontend
-                topologyKey: kubernetes.io/hostname
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                  - key: component
+                    operator: In
+                    values:
+                      - frontend
+              topologyKey: kubernetes.io/hostname
 
       terminationGracePeriodSeconds: 30
 
