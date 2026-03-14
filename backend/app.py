@@ -9,6 +9,7 @@ Features:
 - Graceful shutdown
 - CORS support for frontend
 """
+
 import json
 import logging
 import os
@@ -77,24 +78,28 @@ logger.addHandler(handler)
 # simple connection pool - reuse connections instead of opening new ones each time
 pool = None
 
+
 def init_pool():
     global pool
     pool = SimpleConnectionPool(
-    1, 5,
-    host=DB_HOST,
-    port=DB_PORT,
-    database=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD,
-    sslmode=DB_SSLMODE,
-    connect_timeout=10,
-)
+        1,
+        5,
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        sslmode=DB_SSLMODE,
+        connect_timeout=10,
+    )
     logger.info("db pool ready")
+
 
 def get_conn():
     if not pool:
         raise RuntimeError("pool not initialized yet")
     return pool.getconn()
+
 
 def release_conn(conn):
     if pool:
@@ -125,6 +130,7 @@ def init_table():
     finally:
         release_conn(conn)
 
+
 def get_value():
     conn = get_conn()
     try:
@@ -137,6 +143,7 @@ def get_value():
         raise
     finally:
         release_conn(conn)
+
 
 def increment():
     conn = get_conn()
@@ -159,6 +166,7 @@ def increment():
         raise
     finally:
         release_conn(conn)
+
 
 def reset():
     conn = get_conn()
@@ -195,8 +203,12 @@ def setup_tracing():
 
 
 # prometheus metrics - scraped every 15s by prometheus
-request_count = Counter("counter_service_requests_total", "total requests", ["method", "endpoint", "status"])
-request_duration = Histogram("counter_service_request_duration_seconds", "request duration", ["method", "endpoint"])
+request_count = Counter(
+    "counter_service_requests_total", "total requests", ["method", "endpoint", "status"]
+)
+request_duration = Histogram(
+    "counter_service_request_duration_seconds", "request duration", ["method", "endpoint"]
+)
 increment_count = Counter("counter_service_increments_total", "total increments")
 reset_count = Counter("counter_service_resets_total", "total resets")
 
@@ -229,12 +241,15 @@ app.add_middleware(
 FastAPIInstrumentor.instrument_app(app)
 Psycopg2Instrumentor().instrument()
 
+
 # runs on every request - logs it and tracks duration
 @app.middleware("http")
 async def track_requests(request: Request, call_next):
     with request_duration.labels(method=request.method, endpoint=request.url.path).time():
         response = await call_next(request)
-    request_count.labels(method=request.method, endpoint=request.url.path, status=response.status_code).inc()
+    request_count.labels(
+        method=request.method, endpoint=request.url.path, status=response.status_code
+    ).inc()
     return response
 
 
@@ -299,10 +314,12 @@ def handle_shutdown(signum, frame):
     logger.info(f"got signal {signum}, bye")
     sys.exit(0)
 
+
 signal.signal(signal.SIGTERM, handle_shutdown)
 signal.signal(signal.SIGINT, handle_shutdown)
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000, log_config=None)
